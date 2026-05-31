@@ -23,11 +23,14 @@ jobs:
             libpng-dev \
             pkg-config
 
-      - name: Clean build
+      - name: Clean
         run: make clean
 
       - name: Build tools
-        run: make tools
+        # We build tools separately and ensure they are executable
+        run: |
+          make tools
+          chmod -R +x tools/
 
       - name: Build ROM
         run: make -j$(nproc)
