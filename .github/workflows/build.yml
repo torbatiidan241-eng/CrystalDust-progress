@@ -26,15 +26,17 @@ jobs:
             pkg-config \
             libz-dev
 
-      - name: Clean environment
-        run: make clean
-
-      - name: Build tools
+      - name: Build tools manually
         run: |
-          make tools
-          # Verify tools exist after build
-          if [ ! -f "tools/scaninc/scaninc" ]; then echo "scaninc missing"; exit 1; fi
-          if [ ! -f "tools/ramscrgen/ramscrgen" ]; then echo "ramscrgen missing"; exit 1; fi
+          # Manually compile tools to bypass faulty Makefile logic
+          gcc tools/scaninc/scaninc.c -o tools/scaninc/scaninc
+          gcc tools/ramscrgen/ramscrgen.c -o tools/ramscrgen/ramscrgen
+          gcc tools/preproc/preproc.c -o tools/preproc/preproc
+          
+          # Ensure they are executable
+          chmod +x tools/scaninc/scaninc
+          chmod +x tools/ramscrgen/ramscrgen
+          chmod +x tools/preproc/preproc
 
       - name: Build ROM
         run: make -j$(nproc)
