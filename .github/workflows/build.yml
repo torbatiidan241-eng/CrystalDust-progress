@@ -9,11 +9,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # This ensures all steps run inside your project folder automatically
+    defaults:
+      run:
+        working-directory: CrystalDust-progress
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install dependencies
+        # Install latest ARM toolchain and build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -23,14 +29,11 @@ jobs:
             libpng-dev \
             pkg-config
 
-      - name: Clean
+      - name: Clean build
         run: make clean
 
       - name: Build tools
-        # We build tools separately and ensure they are executable
-        run: |
-          make tools
-          chmod -R +x tools/
+        run: make tools
 
       - name: Build ROM
         run: make -j$(nproc)
@@ -39,4 +42,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rom-artifact
-          path: "*.gba"
+          # Adjust this path if the .gba file is in a subfolder
+          path: CrystalDust-progress/*.gba
