@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive # THIS IS CRITICAL
 
       - name: Install dependencies
         run: |
@@ -24,15 +26,10 @@ jobs:
             pkg-config \
             libz-dev
 
-      - name: Clean build
-        run: make clean
-
       - name: Build tools
-        # We explicitly build the tools and list them to ensure they exist
         run: |
+          make clean
           make tools
-          ls -l tools/scaninc/scaninc
-          ls -l tools/ramscrgen/ramscrgen
 
       - name: Build ROM
         run: make -j$(nproc)
