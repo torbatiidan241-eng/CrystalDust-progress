@@ -9,17 +9,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # This ensures all steps run inside your project folder automatically
-    defaults:
-      run:
-        working-directory: CrystalDust-progress
+    # Removed defaults to prevent the pathing error
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        # Install latest ARM toolchain and build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -42,5 +38,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rom-artifact
-          # Adjust this path if the .gba file is in a subfolder
-          path: CrystalDust-progress/*.gba
+          path: "*.gba"
