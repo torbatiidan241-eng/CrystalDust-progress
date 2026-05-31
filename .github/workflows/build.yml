@@ -26,20 +26,11 @@ jobs:
             pkg-config \
             libz-dev
 
-      - name: Build tools manually
+      - name: Build and ROM
         run: |
-          # Manually compile tools to bypass faulty Makefile logic
-          gcc tools/scaninc/scaninc.c -o tools/scaninc/scaninc
-          gcc tools/ramscrgen/ramscrgen.c -o tools/ramscrgen/ramscrgen
-          gcc tools/preproc/preproc.c -o tools/preproc/preproc
-          
-          # Ensure they are executable
-          chmod +x tools/scaninc/scaninc
-          chmod +x tools/ramscrgen/ramscrgen
-          chmod +x tools/preproc/preproc
-
-      - name: Build ROM
-        run: make -j$(nproc)
+          make clean
+          make tools
+          make -j$(nproc)
 
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
