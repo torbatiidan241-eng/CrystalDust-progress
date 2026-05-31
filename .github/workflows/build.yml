@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive # THIS IS CRITICAL
+          submodules: recursive
 
       - name: Install dependencies
         run: |
@@ -26,10 +26,15 @@ jobs:
             pkg-config \
             libz-dev
 
+      - name: Clean environment
+        run: make clean
+
       - name: Build tools
         run: |
-          make clean
           make tools
+          # Verify tools exist after build
+          if [ ! -f "tools/scaninc/scaninc" ]; then echo "scaninc missing"; exit 1; fi
+          if [ ! -f "tools/ramscrgen/ramscrgen" ]; then echo "ramscrgen missing"; exit 1; fi
 
       - name: Build ROM
         run: make -j$(nproc)
