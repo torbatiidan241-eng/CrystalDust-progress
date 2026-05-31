@@ -23,6 +23,9 @@ jobs:
             libpng-dev \
             pkg-config
 
+      - name: Clean build
+        run: make clean
+
       - name: Build tools
         run: make tools
 
