@@ -9,8 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Removed defaults to prevent the pathing error
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,13 +21,18 @@ jobs:
             gcc-arm-none-eabi \
             binutils-arm-none-eabi \
             libpng-dev \
-            pkg-config
+            pkg-config \
+            libz-dev
 
       - name: Clean build
         run: make clean
 
       - name: Build tools
-        run: make tools
+        # We explicitly build the tools and list them to ensure they exist
+        run: |
+          make tools
+          ls -l tools/scaninc/scaninc
+          ls -l tools/ramscrgen/ramscrgen
 
       - name: Build ROM
         run: make -j$(nproc)
