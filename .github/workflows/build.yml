@@ -34,12 +34,18 @@ jobs:
         run: |
           export PATH=$PATH:$(pwd)/tools
           
-          # We use the 'TOOLCHAIN' variable common in decomp projects.
-          # We also explicitly include the newlib path where stddef.h resides.
+          # We define ARM_INC to locate compiler-specific headers
+          ARM_INC=$(arm-none-eabi-gcc -print-file-name=include)
+          
           make clean
+          # Added -ffreestanding to prevent searching for host system headers
           make -j$(nproc) TOOLCHAIN=arm-none-eabi- \
-                        CPPFLAGS="-Iinclude -I/usr/include/newlib" \
-                        CC=arm-none-eabi-gcc
+                        CPPFLAGS="-Iinclude -I$ARM_INC -ffreestanding" \
+                        CC=arm-none-eabi-gcc \
+                        CXX=arm-none-eabi-g++ \
+                        AS=arm-none-eabi-as \
+                        LD=arm-none-eabi-ld \
+                        OBJCOPY=arm-none-eabi-objcopy
         
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
