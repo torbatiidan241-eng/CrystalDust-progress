@@ -23,23 +23,19 @@ jobs:
           # Build tools using the native compiler (gcc)
           for dir in tools/*/; do
             if [ -f "${dir}Makefile" ]; then
-              echo "Building tool in $dir..."
               make -C "$dir" CC=gcc CXX=g++
             fi
           done
 
       - name: Build ROM
         run: |
-          # Add tools directory to PATH
+          # Add tools to the PATH
           export PATH=$PATH:$(pwd)/tools
           
-          # Build the ROM using the ARM cross-compiler
+          # Clean and build with explicit TOOLCHAIN configuration.
+          # We force 'arm-none-eabi-' prefix for all toolchain components.
           make clean
-          make -j$(nproc) CC=arm-none-eabi-gcc \
-                        CXX=arm-none-eabi-g++ \
-                        LD=arm-none-eabi-ld \
-                        AS=arm-none-eabi-as \
-                        OBJCOPY=arm-none-eabi-objcopy
+          make -j$(nproc) TOOLCHAIN=arm-none-eabi-
         
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
