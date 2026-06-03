@@ -10,6 +10,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Force Node.js 24 to resolve the deprecation warning
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,7 +21,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev pkg-config libz-dev
+          # Ensure both compiler and C library for ARM are installed
+          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libpng-dev pkg-config libz-dev
 
       - name: Build Tools
         run: |
@@ -29,19 +34,14 @@ jobs:
 
       - name: Build ROM
         run: |
-          # 1. Add tools to path
+          # Add tools to path
           export PATH=$PATH:$(pwd)/tools
           
-          # 2. Build ROM using standard variable overrides
-          # This tells make to use the ARM cross-compiler for everything.
+          # Build ROM with explicit toolchain prefix and include headers
+          # TOOLCHAIN=arm-none-eabi- is the standard way for GBA projects
           make clean
-          make -j$(nproc) CC=arm-none-eabi-gcc \
-                        CXX=arm-none-eabi-g++ \
-                        AS=arm-none-eabi-as \
-                        LD=arm-none-eabi-ld \
-                        OBJCOPY=arm-none-eabi-objcopy \
-                        CPPFLAGS="-Iinclude"
-
+          make -j$(nproc) TOOLCHAIN=arm-none-eabi- CPPFLAGS="-Iinclude"
+        
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
         with:
