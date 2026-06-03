@@ -29,19 +29,18 @@ jobs:
 
       - name: Build ROM
         run: |
-          # Add tools to path
+          # 1. Add tools to path
           export PATH=$PATH:$(pwd)/tools
           
-          # Force the Makefile to use the correct ARM cross-compiler
-          # These sed commands replace the default CC, AS, LD, and OBJCOPY settings
-          sed -i 's/CC :=.*/CC := arm-none-eabi-gcc/' Makefile
-          sed -i 's/AS :=.*/AS := arm-none-eabi-as/' Makefile
-          sed -i 's/LD :=.*/LD := arm-none-eabi-ld/' Makefile
-          sed -i 's/OBJCOPY :=.*/OBJCOPY := arm-none-eabi-objcopy/' Makefile
-          
-          # Build the ROM
+          # 2. Build ROM using standard variable overrides
+          # This tells make to use the ARM cross-compiler for everything.
           make clean
-          make -j$(nproc)
+          make -j$(nproc) CC=arm-none-eabi-gcc \
+                        CXX=arm-none-eabi-g++ \
+                        AS=arm-none-eabi-as \
+                        LD=arm-none-eabi-ld \
+                        OBJCOPY=arm-none-eabi-objcopy \
+                        CPPFLAGS="-Iinclude"
 
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
