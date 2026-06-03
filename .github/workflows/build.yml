@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libpng-dev pkg-config libz-dev
+          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev pkg-config libz-dev
 
       - name: Build Tools
         run: |
@@ -32,16 +32,13 @@ jobs:
 
       - name: Build ROM
         run: |
+          # Ensure tools are accessible
           export PATH=$PATH:$(pwd)/tools
           
-          # We define ARM_INC to locate compiler-specific headers
-          ARM_INC=$(arm-none-eabi-gcc -print-file-name=include)
-          
+          # Force make to use the ARM cross-compiler for every command
+          # We define the compiler variables directly to override any Makefile defaults
           make clean
-          # Added -ffreestanding to prevent searching for host system headers
-          make -j$(nproc) TOOLCHAIN=arm-none-eabi- \
-                        CPPFLAGS="-Iinclude -I$ARM_INC -ffreestanding" \
-                        CC=arm-none-eabi-gcc \
+          make -j$(nproc) CC=arm-none-eabi-gcc \
                         CXX=arm-none-eabi-g++ \
                         AS=arm-none-eabi-as \
                         LD=arm-none-eabi-ld \
