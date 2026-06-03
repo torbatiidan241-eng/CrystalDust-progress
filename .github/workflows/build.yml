@@ -24,28 +24,26 @@ jobs:
 
       - name: Build Tools
         run: |
-          # Build all tools and ensure they are compiled
+          # Build all tools in the tools folder
           for dir in tools/*/; do
             if [ -f "${dir}Makefile" ]; then
-              echo "Building tool in $dir"
               make -C "$dir"
             fi
           done
 
       - name: Build ROM
         run: |
-          # Ensure tools directory is in the path
-          export PATH=$PATH:$(pwd)/tools
+          # 1. Update PATH to include the tools directory
+          # We use $(pwd) to ensure it points to the absolute path
+          export PATH="$(pwd)/tools:$PATH"
           
-          # Use the standard variables to override the Makefile
-          # We force the compiler tools to the ones installed via apt-get
+          # 2. Clean and Build
           make clean
           make -j$(nproc) CC=arm-none-eabi-gcc \
                         CXX=arm-none-eabi-g++ \
                         AS=arm-none-eabi-as \
                         LD=arm-none-eabi-ld \
-                        OBJCOPY=arm-none-eabi-objcopy \
-                        CPPFLAGS="-Iinclude"
+                        OBJCOPY=arm-none-eabi-objcopy
         
       - name: Upload ROM artifact
         uses: actions/upload-artifact@v4
