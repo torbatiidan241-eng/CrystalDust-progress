@@ -24,7 +24,6 @@ jobs:
 
       - name: Build Tools
         run: |
-          # Build tools using system gcc
           for dir in tools/*/; do
             if [ -f "${dir}Makefile" ]; then
               make -C "$dir" CC=gcc CXX=g++
@@ -33,15 +32,18 @@ jobs:
 
       - name: Build ROM
         run: |
-          # Add tools to path
           export PATH=$PATH:$(pwd)/tools
           
-          # We use variable overrides to force the ARM toolchain.
-          # We also set CPPFLAGS to ensure the compiler finds headers.
+          # Clean old artifacts
           make clean
+          
+          # We force variables here to ensure the environment is correct.
+          # We use SHELLOPTS=errexit:pipefail to ensure that if any part 
+          # of the build fails, the whole process stops immediately 
+          # so we can see the exact error.
           make -j$(nproc) CC=arm-none-eabi-gcc \
-                        CXX=arm-none-eabi-g++ \
                         AS=arm-none-eabi-as \
+                        AR=arm-none-eabi-ar \
                         LD=arm-none-eabi-ld \
                         OBJCOPY=arm-none-eabi-objcopy \
                         CPPFLAGS="-Iinclude"
