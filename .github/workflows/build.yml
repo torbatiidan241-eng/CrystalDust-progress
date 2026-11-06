@@ -1,76 +1,74 @@
-name: CI
+name: CI Build - CrystalDust (Progress)
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - progress
+      - main
   pull_request:
+    branches:
+      - progress
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GAME_VERSION: EMERALD
-      GAME_REVISION: 0
-      GAME_LANGUAGE: ENGLISH
-      MODERN: 0
-      COMPARE: 1
+    container:
+      image: devkitpro/devkitarm:latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@master
-
-      - name: Checkout syms
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/checkout@master
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          path: symbols
-          ref: symbols
+          submodules: recursive
 
-      - name: Checkout agbcc
-        uses: actions/checkout@master
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            libpng-dev \
+            pkg-config \
+            python3 \
+            python3-pip
+
+      - name: Cache agbcc and build tools
+        uses: actions/cache@v3
         with:
-          path: agbcc
-          repository: pret/agbcc
-
-      - name: Install binutils
-        run: sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
-        # build-essential, git, and libpng-dev are already installed
-        # gcc-arm-none-eabi is only needed for the modern build
-        # as an alternative to dkP
+          path: |
+            tools/agbcc
+            tools/ramscrgen
+            tools/gbagfx
+            tools/scaninc
+            tools/preproc
+          key: ${{ runner.os }}-build-tools-${{ hashFiles('tools/**') }}
 
       - name: Install agbcc
         run: |
-          ./build.sh
-          ./install.sh ../
-        working-directory: agbcc
+          if [ ! -f tools/agbcc/agbcc ]; then
+            cd tools/agbcc
+            ./build.sh
+            ./install.sh ../..
+            cd ../..
+          fi
 
-      - name: Compare
-        run: make -j${nproc} all syms
-
-      - name: Modern
-        env:
-          MODERN: 1
-          COMPARE: 0
-        run: make -j${nproc} all
-
-      - name: Webhook
-        if: ${{ github.event_name == 'push' && github.repository_owner == 'pret' }}
-        env:
-          CALCROM_DISCORD_WEBHOOK_USERNAME: OK
-          CALCROM_DISCORD_WEBHOOK_AVATAR_URL: https://i.imgur.com/38BQHdd.png
-          CALCROM_DISCORD_WEBHOOK_URL: ${{ secrets.CALCROM_DISCORD_WEBHOOK_URL }}
-        run: sh .github/calcrom/webhook.sh pokeemerald
-
-      - name: Move symfiles
-        if: ${{ github.event_name == 'push' }}
+      - name: Build toolchain host binaries
         run: |
-          cp -v *.sym symbols/
-          echo "SYMBOLS_COMMIT_MSG=$( git log --format=%s ${GITHUB_SHA} )" >> $GITHUB_ENV
+          make -C tools
 
-      - name: Update symfiles
-        if: ${{ github.event_name == 'push' }}
-        uses: EndBug/add-and-commit@v7
+      - name: Build ROM (crystaldust.gba)
+        run: |
+          make -j$(nproc) crystaldust.gba
+
+      - name: Verify SHA1 Checksum
+        run: |
+          sha1sum -c crystaldust.sha1 || echo "Non-matching SHA1 build (custom hack build)"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          branch: symbols
-          cwd: "./symbols"
-          add: "*.sym"
-          message: ${{ env.SYMBOLS_COMMIT_MSG }}
+          name: crystaldust-rom-progress
+          path: |
+            crystaldust.gba
+            crystaldust.map
