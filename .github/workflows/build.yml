@@ -30,7 +30,7 @@ jobs:
 
       - name: Ensure submodules are initialized
         run: |
-          git submodule update --init --recursive
+          git submodule update --init --recursive || git submodule update --init
 
       - name: Install build dependencies
         run: |
@@ -56,10 +56,19 @@ jobs:
       - name: Build and install agbcc
         run: |
           if [ ! -f tools/agbcc/agbcc ]; then
-            cd tools/agbcc
-            ./build.sh
-            ./install.sh ../..
-            cd ../..
+            if [ -d "tools/agbcc" ]; then
+              cd tools/agbcc
+              ./build.sh
+              ./install.sh ../..
+              cd ../..
+            else
+              echo "Directory tools/agbcc is missing. Attempting manual clone..."
+              git clone https://github.com/pret/agbcc.git tools/agbcc
+              cd tools/agbcc
+              ./build.sh
+              ./install.sh ../..
+              cd ../..
+            fi
           fi
         shell: sh -e {0}
 
