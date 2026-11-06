@@ -1,52 +1,76 @@
-name: Build GBA ROM
+name: CI
 
 on:
   push:
-    branches:
-      - main
-      - progrees
-  workflow_dispatch:
+    branches: [ master ]
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      
+      GAME_VERSION: EMERALD
+      GAME_REVISION: 0
+      GAME_LANGUAGE: ENGLISH
+      MODERN: 0
+      COMPARE: 1
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@master
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential gcc-arm-none-eabi binutils-arm-none-eabi libpng-dev pkg-config libz-dev
-
-      - name: Verify Environment
-        run: |
-          # This step will stop the build immediately if the compiler is missing
-          if [ ! -f "tools/agbcc/agbcc" ]; then
-            echo "ERROR: 'tools/agbcc/agbcc' binary is missing from your repository!"
-            echo "You must upload the agbcc executable to your tools/agbcc/ folder."
-            exit 1
-          fi
-          mkdir -p tools/agbcc/bin
-          cp tools/agbcc/agbcc tools/agbcc/bin/agbcc
-          chmod +x tools/agbcc/bin/agbcc
-
-      - name: Build ROM
-        run: |
-          export PATH="$(pwd)/tools:$PATH"
-          make clean
-          make -j$(nproc) CC=arm-none-eabi-gcc \
-                        CXX=arm-none-eabi-g++ \
-                        AS=arm-none-eabi-as \
-                        LD=arm-none-eabi-ld \
-                        OBJCOPY=arm-none-eabi-objcopy \
-                        CPPFLAGS="-Iinclude"
-        
-      - name: Upload ROM artifact
-        uses: actions/upload-artifact@v4
+      - name: Checkout syms
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@master
         with:
-          name: rom-artifact
-          path: "*.gba"
+          path: symbols
+          ref: symbols
+
+      - name: Checkout agbcc
+        uses: actions/checkout@master
+        with:
+          path: agbcc
+          repository: pret/agbcc
+
+      - name: Install binutils
+        run: sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
+        # build-essential, git, and libpng-dev are already installed
+        # gcc-arm-none-eabi is only needed for the modern build
+        # as an alternative to dkP
+
+      - name: Install agbcc
+        run: |
+          ./build.sh
+          ./install.sh ../
+        working-directory: agbcc
+
+      - name: Compare
+        run: make -j${nproc} all syms
+
+      - name: Modern
+        env:
+          MODERN: 1
+          COMPARE: 0
+        run: make -j${nproc} all
+
+      - name: Webhook
+        if: ${{ github.event_name == 'push' && github.repository_owner == 'pret' }}
+        env:
+          CALCROM_DISCORD_WEBHOOK_USERNAME: OK
+          CALCROM_DISCORD_WEBHOOK_AVATAR_URL: https://i.imgur.com/38BQHdd.png
+          CALCROM_DISCORD_WEBHOOK_URL: ${{ secrets.CALCROM_DISCORD_WEBHOOK_URL }}
+        run: sh .github/calcrom/webhook.sh pokeemerald
+
+      - name: Move symfiles
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          cp -v *.sym symbols/
+          echo "SYMBOLS_COMMIT_MSG=$( git log --format=%s ${GITHUB_SHA} )" >> $GITHUB_ENV
+
+      - name: Update symfiles
+        if: ${{ github.event_name == 'push' }}
+        uses: EndBug/add-and-commit@v7
+        with:
+          branch: symbols
+          cwd: "./symbols"
+          add: "*.sym"
+          message: ${{ env.SYMBOLS_COMMIT_MSG }}
