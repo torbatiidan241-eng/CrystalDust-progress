@@ -24,6 +24,10 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Mark workspace as safe directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Ensure submodules are initialized
         run: |
           git submodule update --init --recursive
