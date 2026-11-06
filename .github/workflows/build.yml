@@ -72,6 +72,17 @@ jobs:
           fi
         shell: sh -e {0}
 
+      - name: Setup Base ROM
+        run: |
+          if [ -f "baserom.gba" ]; then
+            cp baserom.gba CrystalDust_legacy.gba
+            cp baserom.gba CrystalDust.gba
+            echo "Copied baserom.gba to expected target filenames."
+          else
+            echo "Warning: baserom.gba not found in root directory!"
+          fi
+        shell: sh -e {0}
+
       - name: Build host binaries
         run: |
           if [ -f "tools/Makefile" ]; then
