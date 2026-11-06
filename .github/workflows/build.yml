@@ -74,7 +74,17 @@ jobs:
 
       - name: Build host binaries
         run: |
-          make -C tools
+          if [ -f "tools/Makefile" ]; then
+            make -C tools
+          else
+            echo "No Makefile found in tools/. Building individual tools manually..."
+            for tool in gbagfx scaninc preproc ramscrgen; do
+              if [ -d "tools/$tool" ] && [ -f "tools/$tool/Makefile" ]; then
+                make -C "tools/$tool"
+              fi
+            done
+          fi
+        shell: sh -e {0}
 
       - name: Build ROM (crystaldust.gba)
         run: |
