@@ -61,6 +61,7 @@ jobs:
             ./install.sh ../..
             cd ../..
           fi
+        shell: sh -e {0}
 
       - name: Build host binaries
         run: |
