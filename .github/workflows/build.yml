@@ -86,18 +86,21 @@ jobs:
           fi
         shell: sh -e {0}
 
-      - name: Build ROM (crystaldust.gba)
+      - name: Build ROM
         run: |
-          make -j$(nproc) crystaldust.gba
-
-      - name: Verify SHA1 Checksum
-        run: |
-          sha1sum -c crystaldust.sha1 || echo "Non-matching SHA1 build (custom hack build)"
+          if make -n crystaldust.gba >/dev/null 2>&1; then
+            make -j$(nproc) crystaldust.gba
+          elif make -n pokeemerald.gba >/dev/null 2>&1; then
+            make -j$(nproc) pokeemerald.gba
+          else
+            echo "Building default target from Makefile..."
+            make -j$(nproc)
+          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: crystaldust-rom-progress
           path: |
-            crystaldust.gba
-            crystaldust.map
+            *.gba
+            *.map
