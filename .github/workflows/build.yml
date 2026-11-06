@@ -17,11 +17,16 @@ jobs:
     container:
       image: devkitpro/devkitarm:latest
 
-    steps:
+ steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Initialize Submodules (Explicit Fallback)
+        run: |
+          git submodule sync
+          git submodule update --init --recursive
 
       - name: Install build dependencies
         run: |
@@ -32,17 +37,6 @@ jobs:
             pkg-config \
             python3 \
             python3-pip
-
-      - name: Cache agbcc and build tools
-        uses: actions/cache@v3
-        with:
-          path: |
-            tools/agbcc
-            tools/ramscrgen
-            tools/gbagfx
-            tools/scaninc
-            tools/preproc
-          key: ${{ runner.os }}-build-tools-${{ hashFiles('tools/**') }}
 
       - name: Install agbcc
         run: |
