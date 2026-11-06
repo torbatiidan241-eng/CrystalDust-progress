@@ -446,14 +446,13 @@ else
 LD_SCRIPT := ld_script_modern.txt
 LD_SCRIPT_DEPS := 
 endif
-
 $(OBJ_DIR)/ld_script.ld: $(LD_SCRIPT) $(LD_SCRIPT_DEPS)
-    @if [ -f "../../$(LD_SCRIPT)" ]; then \
-        cd $(OBJ_DIR) && sed "s#tools/#../../tools/#g" ../../$(LD_SCRIPT) > ld_script.ld; \
-    else \
-        echo "Error: Template script ../../$(LD_SCRIPT) is missing!"; \
-        exit 1; \
-    fi
+[TAB]@if [ -f "../../$(LD_SCRIPT)" ]; then \
+[TAB]    cd $(OBJ_DIR) && sed "s#tools/#../../tools/#g" ../../$(LD_SCRIPT) > ld_script.ld; \
+[TAB]else \
+[TAB]    echo "Error: Template script ../../$(LD_SCRIPT) is missing!"; \
+[TAB]    exit 1; \
+[TAB]fi
 
 $(ELF): $(OBJ_DIR)/ld_script.ld $(OBJS) berry_fix libagbsyscall
 	@echo "cd $(OBJ_DIR) && $(LD) $(LDFLAGS) -T ld_script.ld -o ../../$@ <objects> <lib>"
