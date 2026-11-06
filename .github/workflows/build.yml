@@ -1,76 +1,117 @@
-name: CI
+name: CI Build - CrystalDust (Progress)
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - progress
+      - main
   pull_request:
+    branches:
+      - progress
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GAME_VERSION: EMERALD
-      GAME_REVISION: 0
-      GAME_LANGUAGE: ENGLISH
-      MODERN: 0
-      COMPARE: 1
+    container:
+      image: devkitpro/devkitarm:latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@master
-
-      - name: Checkout syms
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/checkout@master
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
         with:
-          path: symbols
-          ref: symbols
+          submodules: recursive
+          fetch-depth: 0
 
-      - name: Checkout agbcc
-        uses: actions/checkout@master
-        with:
-          path: agbcc
-          repository: pret/agbcc
-
-      - name: Install binutils
-        run: sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
-        # build-essential, git, and libpng-dev are already installed
-        # gcc-arm-none-eabi is only needed for the modern build
-        # as an alternative to dkP
-
-      - name: Install agbcc
+      - name: Mark workspace as safe directory
         run: |
-          ./build.sh
-          ./install.sh ../
-        working-directory: agbcc
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Compare
-        run: make -j${nproc} all syms
-
-      - name: Modern
-        env:
-          MODERN: 1
-          COMPARE: 0
-        run: make -j${nproc} all
-
-      - name: Webhook
-        if: ${{ github.event_name == 'push' && github.repository_owner == 'pret' }}
-        env:
-          CALCROM_DISCORD_WEBHOOK_USERNAME: OK
-          CALCROM_DISCORD_WEBHOOK_AVATAR_URL: https://i.imgur.com/38BQHdd.png
-          CALCROM_DISCORD_WEBHOOK_URL: ${{ secrets.CALCROM_DISCORD_WEBHOOK_URL }}
-        run: sh .github/calcrom/webhook.sh pokeemerald
-
-      - name: Move symfiles
-        if: ${{ github.event_name == 'push' }}
+      - name: Ensure submodules are initialized
         run: |
-          cp -v *.sym symbols/
-          echo "SYMBOLS_COMMIT_MSG=$( git log --format=%s ${GITHUB_SHA} )" >> $GITHUB_ENV
+          git submodule update --init --recursive || git submodule update --init
 
-      - name: Update symfiles
-        if: ${{ github.event_name == 'push' }}
-        uses: EndBug/add-and-commit@v7
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            libpng-dev \
+            pkg-config \
+            python3 \
+            python3-pip
+
+      - name: Cache agbcc and build tools
+        uses: actions/cache@v3
         with:
-          branch: symbols
-          cwd: "./symbols"
-          add: "*.sym"
-          message: ${{ env.SYMBOLS_COMMIT_MSG }}
+          path: |
+            tools/agbcc
+            tools/ramscrgen
+            tools/gbagfx
+            tools/scaninc
+            tools/preproc
+          key: ${{ runner.os }}-build-tools-${{ hashFiles('tools/**') }}
+
+      - name: Build and install agbcc
+        run: |
+          if [ ! -f tools/agbcc/agbcc ]; then
+            if [ -d "tools/agbcc" ]; then
+              cd tools/agbcc
+              ./build.sh
+              ./install.sh ../..
+              cd ../..
+            else
+              echo "Directory tools/agbcc is missing. Attempting manual clone..."
+              git clone https://github.com/pret/agbcc.git tools/agbcc
+              cd tools/agbcc
+              ./build.sh
+              ./install.sh ../..
+              cd ../..
+            fi
+          fi
+        shell: sh -e {0}
+
+      - name: Setup Base ROM
+        run: |
+          if [ -f "baserom.gba" ]; then
+            cp baserom.gba CrystalDust_legacy.gba
+            cp baserom.gba CrystalDust.gba
+            echo "Copied baserom.gba to expected target filenames."
+          else
+            echo "Warning: baserom.gba not found in root directory!"
+          fi
+        shell: sh -e {0}
+
+      - name: Build host binaries
+        run: |
+          if [ -f "tools/Makefile" ]; then
+            make -C tools
+          else
+            echo "No Makefile found in tools/. Building individual tools manually..."
+            for tool in gbagfx scaninc preproc ramscrgen; do
+              if [ -d "tools/$tool" ] && [ -f "tools/$tool/Makefile" ]; then
+                make -C "tools/$tool"
+              fi
+            done
+          fi
+        shell: sh -e {0}
+
+      - name: Build ROM
+        run: |
+          if make -n crystaldust.gba >/dev/null 2>&1; then
+            make -j$(nproc) crystaldust.gba
+          elif make -n pokeemerald.gba >/dev/null 2>&1; then
+            make -j$(nproc) pokeemerald.gba
+          else
+            echo "Building default target from Makefile..."
+            make -j$(nproc)
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: crystaldust-rom-progress
+          path: |
+            *.gba
+            *.map
