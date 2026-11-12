@@ -22,13 +22,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl wget build-essential python3 unzip make libpng-dev libz-dev gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
 
-      - name: Fix missing cstdint in all json11.cpp files
-        run: |
-          find . -name "json11.cpp" | while read file; do
-            echo "Patching $file"
-            sed -i '1i #include <cstdint>' "$file"
-          done
-
       - name: Download and Install Official Poryscript Binary
         run: |
           mkdir -p tools/poryscript
