@@ -5,11 +5,12 @@ on:
     branches: [ progress ]
   pull_request:
     branches: [ progress ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout Repository
@@ -17,47 +18,54 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install System Dependencies & Toolchains
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl wget build-essential python3 unzip make libpng-dev libz-dev gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            unzip \
+            git \
+            python3 \
+            libpng-dev \
+            zlib1g-dev \
+            gcc-arm-none-eabi \
+            binutils-arm-none-eabi \
+            libnewlib-arm-none-eabi
 
-      - name: Download and Install Official Poryscript Binary
+      - name: Setup Poryscript
         run: |
           mkdir -p tools/poryscript
-          wget -q https://github.com/huderlem/poryscript/releases/latest/download/poryscript-linux.zip -O poryscript-linux.zip
-          unzip -o poryscript-linux.zip -d tools/poryscript/
-          # Move files out of the nested folder if they extracted into poryscript-linux/
+          wget -q https://github.com/huderlem/poryscript/releases/latest/download/poryscript-linux.zip -O poryscript.zip
+          unzip -q -o poryscript.zip -d tools/poryscript
           if [ -d "tools/poryscript/poryscript-linux" ]; then
-            cp -r tools/poryscript/poryscript-linux/* tools/poryscript/
+            mv tools/poryscript/poryscript-linux/* tools/poryscript/
             rm -rf tools/poryscript/poryscript-linux
           fi
           chmod +x tools/poryscript/poryscript
-          rm poryscript-linux.zip
+          rm poryscript.zip
 
-      - name: Clone, Build, and Install agbcc
+      - name: Build and Install agbcc
         run: |
-          mkdir -p tools/agbcc
-          if [ ! -f "tools/agbcc/build.sh" ]; then
-            rm -rf tools/agbcc
-            git clone https://github.com/pret/agbcc tools/agbcc
-          fi
-          
+          rm -rf tools/agbcc
+          git clone --depth=1 https://github.com/pret/agbcc.git tools/agbcc
           cd tools/agbcc
           ./build.sh
-          ./install.sh ../../
+          ./install.sh ../..
           cd ../..
-          make tools
 
-      - name: Run Sequential Modern Build
-        run: |
-          export CC=arm-none-eabi-gcc
-          make modern
+      - name: Build Project Tools
+        run: make tools
 
-      - name: Upload Compiled ROM
+      - name: Build ROM
+        run: make modern -j$(nproc)
+
+      - name: Upload ROM Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gba-rom
+          name: CrystalDust-ROM
           path: |
+            CrystalDust.gba
             *.gba
-            build/*.gba
+          if-no-files-found: error
