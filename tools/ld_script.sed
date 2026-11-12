@@ -1,1 +1,1 @@
-# sed script
+s#tools/#../tools/#g
