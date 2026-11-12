@@ -1,117 +1,70 @@
-name: CI Build - CrystalDust (Progress)
+name: Build CrystalDust
 
 on:
   push:
-    branches:
-      - progress
-      - main
+    branches: [ progress ]
   pull_request:
-    branches:
-      - progress
-      - main
-  workflow_dispatch:
+    branches: [ progress ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: devkitpro/devkitarm:latest
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repository with submodules
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
 
-      - name: Mark workspace as safe directory
+      - name: Install System Dependencies & Toolchains
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sudo apt-get update
+          sudo apt-get install -y curl wget build-essential python3 unzip make libpng-dev libz-dev gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
 
-      - name: Ensure submodules are initialized
+      - name: Fix missing cstdint in all json11.cpp files
         run: |
-          git submodule update --init --recursive || git submodule update --init
+          find . -name "json11.cpp" | while read file; do
+            echo "Patching $file"
+            sed -i '1i #include <cstdint>' "$file"
+          done
 
-      - name: Install build dependencies
+      - name: Download and Install Official Poryscript Binary
         run: |
-          apt-get update && apt-get install -y --no-install-recommends \
-            build-essential \
-            git \
-            libpng-dev \
-            pkg-config \
-            python3 \
-            python3-pip
-
-      - name: Cache agbcc and build tools
-        uses: actions/cache@v3
-        with:
-          path: |
-            tools/agbcc
-            tools/ramscrgen
-            tools/gbagfx
-            tools/scaninc
-            tools/preproc
-          key: ${{ runner.os }}-build-tools-${{ hashFiles('tools/**') }}
-
-      - name: Build and install agbcc
-        run: |
-          if [ ! -f tools/agbcc/agbcc ]; then
-            if [ -d "tools/agbcc" ]; then
-              cd tools/agbcc
-              ./build.sh
-              ./install.sh ../..
-              cd ../..
-            else
-              echo "Directory tools/agbcc is missing. Attempting manual clone..."
-              git clone https://github.com/pret/agbcc.git tools/agbcc
-              cd tools/agbcc
-              ./build.sh
-              ./install.sh ../..
-              cd ../..
-            fi
+          mkdir -p tools/poryscript
+          wget -q https://github.com/huderlem/poryscript/releases/latest/download/poryscript-linux.zip -O poryscript-linux.zip
+          unzip -o poryscript-linux.zip -d tools/poryscript/
+          # Move files out of the nested folder if they extracted into poryscript-linux/
+          if [ -d "tools/poryscript/poryscript-linux" ]; then
+            cp -r tools/poryscript/poryscript-linux/* tools/poryscript/
+            rm -rf tools/poryscript/poryscript-linux
           fi
-        shell: sh -e {0}
+          chmod +x tools/poryscript/poryscript
+          rm poryscript-linux.zip
 
-      - name: Setup Base ROM
+      - name: Clone, Build, and Install agbcc
         run: |
-          if [ -f "baserom.gba" ]; then
-            cp baserom.gba CrystalDust_legacy.gba
-            cp baserom.gba CrystalDust.gba
-            echo "Copied baserom.gba to expected target filenames."
-          else
-            echo "Warning: baserom.gba not found in root directory!"
+          mkdir -p tools/agbcc
+          if [ ! -f "tools/agbcc/build.sh" ]; then
+            rm -rf tools/agbcc
+            git clone https://github.com/pret/agbcc tools/agbcc
           fi
-        shell: sh -e {0}
+          
+          cd tools/agbcc
+          ./build.sh
+          ./install.sh ../../
+          cd ../..
+          make tools
 
-      - name: Build host binaries
+      - name: Run Sequential Modern Build
         run: |
-          if [ -f "tools/Makefile" ]; then
-            make -C tools
-          else
-            echo "No Makefile found in tools/. Building individual tools manually..."
-            for tool in gbagfx scaninc preproc ramscrgen; do
-              if [ -d "tools/$tool" ] && [ -f "tools/$tool/Makefile" ]; then
-                make -C "tools/$tool"
-              fi
-            done
-          fi
-        shell: sh -e {0}
+          export CC=arm-none-eabi-gcc
+          make modern
 
-      - name: Build ROM
-        run: |
-          if make -n crystaldust.gba >/dev/null 2>&1; then
-            make -j$(nproc) crystaldust.gba
-          elif make -n pokeemerald.gba >/dev/null 2>&1; then
-            make -j$(nproc) pokeemerald.gba
-          else
-            echo "Building default target from Makefile..."
-            make -j$(nproc)
-          fi
-
-      - name: Upload Build Artifacts
+      - name: Upload Compiled ROM
         uses: actions/upload-artifact@v4
         with:
-          name: crystaldust-rom-progress
+          name: gba-rom
           path: |
             *.gba
-            *.map
+            build/*.gba
