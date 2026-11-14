@@ -1,0 +1,14 @@
+s/<EWRAM>/ewram/g
+s/<ewram>/ewram/g
+s/<IWRAM>/iwram/g
+s/<iwram>/iwram/g
+s/<ROM>/rom/g
+s/<rom>/rom/g
+s/<BSS>/.bss/g
+s/<bss>/.bss/g
+s/<DATA>/.data/g
+s/<data>/.data/g
+s/<TEXT>/.text/g
+s/<text>/.text/g
+s/<RODATA>/.rodata/g
+s/<rodata>/.rodata/g
